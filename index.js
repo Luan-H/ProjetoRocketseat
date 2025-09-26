@@ -1,53 +1,48 @@
 const formatador = (data) => {
-  return{
+  return {
     dia: {
       numerico: dayjs(data).format('DD'),
       semana: {
         curto: dayjs(data).format('ddd'),
         longo: dayjs(data).format('dddd'),
-      }
+      },
     },
     mes: dayjs(data).format('MMMM'),
-    hora: dayjs(data).format('HH:mm')
+    hora: dayjs(data).format('HH:mm'),
+  };
+};
+
+// Carrega as atividades do localStorage. Se não houver nada, começa com um array vazio.
+// As datas são convertidas de string de volta para objetos Date.
+let atividades = (JSON.parse(localStorage.getItem('atividades')) || []).map(
+  (atividade) => {
+    return {
+      ...atividade,
+      data: new Date(atividade.data),
+    };
   }
-}
+);
 
-const atividade = {
-  nome: "aomosso",
-  data: new Date("2024-07-08 10:00"),
-  finalizada: false
-}
-
-let atividades = [
-  atividade,
-  {
-    nome: 'Academia em grupo',
-    data: new Date("2024-07-09 12:00"),
-    finalizada: false
-  },
-  {
-    nome: 'Gaming session',
-    data: new Date("2024-07-09 16:00"),
-    finalizada: true
-  }
-]
-
-// atividades = []
+// Nova função para salvar as atividades no localStorage
+const salvarNoLocalStorage = () => {
+  localStorage.setItem('atividades', JSON.stringify(atividades));
+};
 
 const criarItemDeAtividade = (atividade) => {
+  // O valor do input agora usa .toISOString() para criar um identificador único e confiável para a data
   let input = `
   <input 
-  onchange="concluirAtividade(event)"
-  value="${atividade.data}"
-  type="checkbox"
-  `
-  if(atividade.finalizada){
-    input += 'checked'
+    onchange="concluirAtividade(event)"
+    value="${atividade.data.toISOString()}"
+    type="checkbox"
+  `;
+  if (atividade.finalizada) {
+    input += 'checked';
   }
-  input += '>'
+  input += '>';
 
   const formatar = formatador(atividade.data);
-  
+
   return `
   <div class="card-bg">
     ${input}
@@ -75,96 +70,72 @@ const criarItemDeAtividade = (atividade) => {
       as ${formatar.hora}h
     </time>
   </div>
-  `
-}
+  `;
+};
 
-const atualizarListaDeAtividades = ()=> {
-  const section = document.querySelector('section')
-  section.innerHTML = ''
-  if(atividades.length == 0){
-    section.innerHTML = `<p>Nenhuma atividade cadastrada.</p>`
-    return
+const atualizarListaDeAtividades = () => {
+  const section = document.querySelector('section');
+  section.innerHTML = '';
+  if (atividades.length == 0) {
+    section.innerHTML = `<p>Nenhuma atividade cadastrada.</p>`;
+    return;
   }
 
-  for(let atividade of atividades){
-    section.innerHTML += criarItemDeAtividade(atividade)
+  for (let atividade of atividades) {
+    section.innerHTML += criarItemDeAtividade(atividade);
   }
-}
-atualizarListaDeAtividades()
+};
 
-const salvarAtividade = (event) =>{
-  event.preventDefault()
-  const dadosDoFormulario = new FormData(event.target)
+// Atualiza a lista na tela assim que a página é carregada
+atualizarListaDeAtividades();
 
-  const nome = dadosDoFormulario.get('atividade')
-  const dia = dadosDoFormulario.get('dia')
-  const hora = dadosDoFormulario.get('hora')
-  const data = `${dia} ${hora}`
+const salvarAtividade = (event) => {
+  event.preventDefault();
+  const dadosDoFormulario = new FormData(event.target);
+  const data = document.getElementById('data').value;
+  const hora = document.getElementById('hora').value;
+  const nome = dadosDoFormulario.get('atividade');
+
+  const novaData = new Date(`${data}T${hora}`);
 
   const novaAtividade = {
     nome: nome,
-    data: data,
-    finalizada: false
-  }
+    data: novaData,
+    finalizada: false,
+  };
 
   const atividadeExiste = atividades.find((atividade) => {
-    return atividade.data == novaAtividade.data
-  })
+    return atividade.data.getTime() === novaAtividade.data.getTime();
+  });
 
-  if(atividadeExiste){
-    return alert('Dia/Hora não disponível')
+  if (atividadeExiste) {
+    return alert('Dia/Hora não disponível');
   }
 
-  atividades = [novaAtividade, ...atividades]
-  atualizarListaDeAtividades()
-}
-
-const criarDiasSelecao = () =>{
-  const dias = [
-    "2024-02-28",
-    "2024-02-29",
-    "2024-03-01",
-    "2024-03-02",
-    "2024-03-03",
-  ]
-
-  let diasSelecao = ''
-
-  for(let dia of dias){
-    const formatar = formatador(dia)
-    const diaFormatado = `${formatar.dia.numerico} de ${formatar.mes}`
-    diasSelecao += `
-    <option value="${dia}">${diaFormatado}</option>
-    ` 
-   }
-
-  document.querySelector('select[name="dia"]').innerHTML = diasSelecao
-}
-criarDiasSelecao()
-
-const criarHorasSelecao = () => {
-  let horasDisponiveis = ''
-
-  for(let i = 6; i < 23; i++){
-    const hora = String(i).padStart(2, '0')
-    horasDisponiveis += `<option value="${hora}:00">${hora}:00</option>`
-    horasDisponiveis += `<option value="${hora}:30">${hora}:30</option>`
-  }
-
-  document.querySelector('select[name="hora"]').innerHTML = horasDisponiveis
-}
-criarHorasSelecao()
+  atividades = [novaAtividade, ...atividades];
+  
+  // Salva no localStorage e depois atualiza a tela
+  salvarNoLocalStorage();
+  atualizarListaDeAtividades();
+  
+  // Limpa os campos do formulário
+  event.target.reset();
+};
 
 const concluirAtividade = (event) => {
-  const input = event.target
-  const dataDesteInput = input.value
+  const input = event.target;
+  const dataDesteInput = input.value;
 
+  // Encontra a atividade correspondente usando o valor ISOString que definimos
   const atividade = atividades.find((atividade) => {
-    return atividade.data == dataDesteInput
-  })
+    return atividade.data.toISOString() === dataDesteInput;
+  });
 
-  if(!atividade){
-    return
+  if (!atividade) {
+    return;
   }
-  atividade.finalizada = !atividade.finalizada
-}
+  
+  // Inverte o status de 'finalizada' e salva a alteração
+  atividade.finalizada = !atividade.finalizada;
+  salvarNoLocalStorage();
+};
